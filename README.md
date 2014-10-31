@@ -1,4 +1,3 @@
-incrypt
+Xncrypt
 =======
-
-An in-place file cryptography tool
+XAn in-place filX cryptography tXol

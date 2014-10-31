@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <string.h>
-// #include <incrypt.h>
+#include <incrypt.h>
 
 void usage()
 {
@@ -52,19 +52,19 @@ int main(int argc, char **argv)
 {
     int c;
     char *file;
-    int encrypt = 0;
+    int decrypt = 0;
     char *key;
 
     static struct option long_opts[] =
     {
         {"file",        required_argument,  NULL,   'f'},
-        {"decrypt",     no_argument,        0,      'e'},
+        {"decrypt",     no_argument,        0,      'd'},
         {"key",         required_argument,  NULL,   'k'},
         {"help",        no_argument,        0,      'h'},
         {"version",     no_argument,        0,      'V'}
     };
 
-    while ((c = getopt_long(argc, argv, "ek:f:", long_opts, NULL)) != -1)
+    while ((c = getopt_long(argc, argv, "dk:f:", long_opts, NULL)) != -1)
     {
         switch (c)
         {
@@ -80,8 +80,8 @@ int main(int argc, char **argv)
             file = optarg;
             break;
 
-        case 'e':
-            encrypt = 1;
+        case 'd':
+            decrypt = 1;
             break;
 
         case 'k':
@@ -99,5 +99,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    return 0;
+    int ret = incrypt(file, key, decrypt);
+    return ret;
 }
