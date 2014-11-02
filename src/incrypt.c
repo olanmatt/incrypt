@@ -23,6 +23,7 @@
  */
 
 #include <incrypt.h>
+#include <aes.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -30,31 +31,89 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <stdint.h>
 
-int incrypt(char* file, char* key, int decrypt)
+static void phex(uint8_t* str)
+{
+    uint8_t i;
+    for (i = 0; i < 16; ++i)
+    {
+        printf("%.2x", str[i]);
+    }
+    printf("\n");
+}
+
+void xor(uint8_t* a, uint8_t* b)
+{
+    int i;
+    for (i = 0; i < 16; ++i)
+    {
+        a[i] = a[i] ^ b[i];
+    }
+}
+
+int incrypt(char* file, uint8_t *key, int decrypt)
 {
     int fd;
-    // char key[32];
-    char buf[BUFSIZE];
+    // TODO(olanmatt): Allow for larger buffers that are multiples of 16.
+    uint8_t in[BUFSIZE];
+    uint8_t out[BUFSIZE];
+    uint8_t last[BUFSIZE];
     int n_read;
-    // off_t file_length;
+
+    // TODO(olanmatt): Better IVs.
+    memset(out, 0, BUFSIZE);
+    memset(in, 0, BUFSIZE);
+
+    // TODO(olanmatt): Implement PBKDF2 key derivation
 
     if ((fd = open(file, O_RDWR)) == -1)
     {
         perror("Could not open file for read or write");
         return 2;
     }
-    while ((n_read = read(fd, buf, BUFSIZE)) > 0)
+
+    // TODO(olanmatt): Add success check block.
+    while ((n_read = read(fd, in, BUFSIZE)) > 0)
     {
-        // encryption/decryption step goes here
+        if (decrypt)
+        {
+            AES128_ECB_decrypt(in, key, out);
+            xor(out, last);  // CBC mode
+            memcpy(last, in, BUFSIZE);
+        }
+        else
+        {
+            // PKCS7 padding
+            if (n_read < BUFSIZE)  // FIXME: Only need to pad for last 16 bytes
+            {
+                memset(in + n_read, BUFSIZE - n_read, BUFSIZE - n_read);
+            }
+            xor(in, out);  // CBC mode
+            AES128_ECB_encrypt(in, key, out);
+        }
+
         lseek(fd, n_read * -1, SEEK_CUR);
-        if (write(fd, buf, n_read) == -1)
+
+        if (write(fd, out, n_read) == -1)
         {
             perror("Could not write to output file");
             return 4;
         }
-        memset(buf, 0, BUFSIZE);
+
+        memset(in, 0, BUFSIZE);
+        // memset(out, 0, BUFSIZE);
     }
+
+    if (decrypt)
+    {
+        // TODO(olanmatt): Remove padding.
+        // lseek back to last block
+        // check last byte for padding value n
+        // memset last n bytes to NULL
+        // TODO(olanmatt): Trunkate file (http://linux.die.net/man/2/truncate).
+    }
+
     close(fd);
     return 0;
 }

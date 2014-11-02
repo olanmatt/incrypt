@@ -53,7 +53,7 @@ int main(int argc, char **argv)
     int c;
     char *file;
     int decrypt = 0;
-    char *key;
+    uint8_t key[16];
 
     static struct option long_opts[] =
     {
@@ -85,7 +85,7 @@ int main(int argc, char **argv)
             break;
 
         case 'k':
-            key = optarg;
+            memcpy(key, optarg, 16);
             break;
 
         default:

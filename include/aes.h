@@ -22,13 +22,12 @@
  * SOFTWARE.
  */
 
-#ifndef INCLUDE_INCRYPT_H_
-#define INCLUDE_INCRYPT_H_
+#ifndef INCLUDE_AES_H_
+#define INCLUDE_AES_H_
 
 #include <stdint.h>
 
-#define BUFSIZE 16
+void AES128_ECB_encrypt(uint8_t* input, uint8_t* key, uint8_t *output);
+void AES128_ECB_decrypt(uint8_t* input, uint8_t* key, uint8_t *output);
 
-int incrypt(char *file, uint8_t *key, int decrypt);
-
-#endif  // INCLUDE_INCRYPT_H_
+#endif  // INCLUDE_AES_H_

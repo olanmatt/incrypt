@@ -32,7 +32,7 @@ astyle:
 
 cpplint:
 	@cpplint  $(CPPLINT_EXTRA) \
-		--filter=-whitespace/line_length,-whitespace/braces\
+		--filter=-whitespace/line_length,-whitespace/braces,-whitespace/newline\
 		$(SOURCES) $(HEADERS) $(TESTSOURCES)
 
 clean:
