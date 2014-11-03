@@ -60,10 +60,12 @@ int incrypt(char* file, uint8_t *key, int decrypt)
     uint8_t out[BUFSIZE];
     uint8_t last[BUFSIZE];
     int n_read;
+    off_t size;
 
     // TODO(olanmatt): Better IVs.
     memset(out, 0, BUFSIZE);
     memset(in, 0, BUFSIZE);
+    memset(last, 0, BUFSIZE);
 
     // TODO(olanmatt): Implement PBKDF2 key derivation
 
@@ -78,9 +80,11 @@ int incrypt(char* file, uint8_t *key, int decrypt)
     {
         if (decrypt)
         {
+            phex(last);
             AES128_ECB_decrypt(in, key, out);
             xor(out, last);  // CBC mode
             memcpy(last, in, BUFSIZE);
+            size += BUFSIZE;  // Get file size to truncate later
         }
         else
         {
@@ -94,8 +98,7 @@ int incrypt(char* file, uint8_t *key, int decrypt)
         }
 
         lseek(fd, n_read * -1, SEEK_CUR);
-
-        if (write(fd, out, n_read) == -1)
+        if (write(fd, out, BUFSIZE) == -1)
         {
             perror("Could not write to output file");
             return 4;
@@ -108,6 +111,7 @@ int incrypt(char* file, uint8_t *key, int decrypt)
     if (decrypt)
     {
         // TODO(olanmatt): Remove padding.
+        // XXX: Use padding for decryption validation? 1/256 * 255/256
         // lseek back to last block
         // check last byte for padding value n
         // memset last n bytes to NULL
