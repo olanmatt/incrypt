@@ -26,22 +26,12 @@
 #include <aes.h>
 #include <unistd.h>
 #include <errno.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <stdint.h>
-
-static void phex(uint8_t* str)
-{
-    uint8_t i;
-    for (i = 0; i < 16; ++i)
-    {
-        printf("%.2x", str[i]);
-    }
-    printf("\n");
-}
+#include <sys/types.h>
 
 void xor(uint8_t* a, uint8_t* b)
 {
@@ -60,7 +50,6 @@ int incrypt(char* file, uint8_t *key, int decrypt)
     uint8_t out[BUFSIZE];
     uint8_t last[BUFSIZE];
     int n_read;
-    off_t size;
 
     // TODO(olanmatt): Better IVs.
     memset(out, 0, BUFSIZE);
@@ -75,16 +64,13 @@ int incrypt(char* file, uint8_t *key, int decrypt)
         return 2;
     }
 
-    // TODO(olanmatt): Add success check block.
     while ((n_read = read(fd, in, BUFSIZE)) > 0)
     {
         if (decrypt)
         {
-            phex(last);
             AES128_ECB_decrypt(in, key, out);
             xor(out, last);  // CBC mode
             memcpy(last, in, BUFSIZE);
-            size += BUFSIZE;  // Get file size to truncate later
         }
         else
         {
@@ -105,17 +91,15 @@ int incrypt(char* file, uint8_t *key, int decrypt)
         }
 
         memset(in, 0, BUFSIZE);
-        // memset(out, 0, BUFSIZE);
     }
 
+    // Remove padding
     if (decrypt)
     {
-        // TODO(olanmatt): Remove padding.
-        // XXX: Use padding for decryption validation? 1/256 * 255/256
-        // lseek back to last block
-        // check last byte for padding value n
-        // memset last n bytes to NULL
-        // TODO(olanmatt): Trunkate file (http://linux.die.net/man/2/truncate).
+        // TODO(olanmatt): Use padding for decryption validation.
+        off_t size = lseek(fd, 0, SEEK_END);  // Get size of file
+        uint8_t padding_length = out[BUFSIZE - 1];  // Get padding length
+        ftruncate(fd, size - padding_length);  // Trunkate the file
     }
 
     close(fd);
