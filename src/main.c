@@ -55,6 +55,7 @@ int main(int argc, char **argv)
     int decrypt = 0;
     uint8_t key[16];
 
+    // TODO(olanmatt): Add flag for safe decrypt to temp file before overwrite.
     static struct option long_opts[] =
     {
         {"file",        required_argument,  NULL,   'f'},

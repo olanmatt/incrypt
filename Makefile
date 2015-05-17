@@ -25,6 +25,9 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 
 .PHONY: clean style astyle cpplint
 
+test: $(TARGET)
+	./bin/incrypt -k 0123456789012345 -f ./test/text.txt
+
 style: astyle cpplint
 
 astyle:

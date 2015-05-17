@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2014 Matt Olan
+ * Copyright (c) 2015 Matt Olan
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,11 +32,13 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <openssl/evp.h>
+#include <openssl/sha.h>
 
 void xor(uint8_t* a, uint8_t* b)
 {
     int i;
-    for (i = 0; i < 16; ++i)
+    for (i = 0; i < BLOCKSIZE; ++i)
     {
         a[i] = a[i] ^ b[i];
     }
@@ -45,46 +47,72 @@ void xor(uint8_t* a, uint8_t* b)
 int incrypt(char* file, uint8_t *key, int decrypt)
 {
     int fd;
-    // TODO(olanmatt): Allow for larger buffers that are multiples of 16.
     uint8_t in[BUFSIZE];
     uint8_t out[BUFSIZE];
-    uint8_t last[BUFSIZE];
+    uint8_t i_block[BLOCKSIZE];
+    uint8_t o_block[BLOCKSIZE];
+    uint8_t last[BLOCKSIZE];
     int n_read;
+    int offset;
+    off_t size = lseek(fd, 0, SEEK_END);  // Get size of file
 
     // TODO(olanmatt): Better IVs.
     memset(out, 0, BUFSIZE);
     memset(in, 0, BUFSIZE);
-    memset(last, 0, BUFSIZE);
+    memset(i_block, 0, BLOCKSIZE);
+    memset(o_block, 0, BLOCKSIZE);
+    memset(last, 0, BLOCKSIZE);
 
     // TODO(olanmatt): Implement PBKDF2 key derivation
+
+    if (BUFSIZE % BLOCKSIZE != 0)
+    {
+        perror("Buffer size must be a multiple of block size");
+        return 2;
+    }
 
     if ((fd = open(file, O_RDWR)) == -1)
     {
         perror("Could not open file for read or write");
-        return 2;
+        return 3;
     }
 
     while ((n_read = read(fd, in, BUFSIZE)) > 0)
     {
-        if (decrypt)
+        for (offset = 0; offset < n_read; offset += BLOCKSIZE)
         {
-            AES128_ECB_decrypt(in, key, out);
-            xor(out, last);  // CBC mode
-            memcpy(last, in, BUFSIZE);
-        }
-        else
-        {
-            // PKCS7 padding
-            if (n_read < BUFSIZE)  // FIXME: Only need to pad for last 16 bytes
+            memcpy(i_block, in + offset, BLOCKSIZE);
+
+            if (decrypt)
             {
-                memset(in + n_read, BUFSIZE - n_read, BUFSIZE - n_read);
+                /*
+                AES128_ECB_decrypt(block, key, out);
+                xor(out, last);  // CBC mode
+                memcpy(last, block, BUFSIZE);
+                */
             }
-            xor(in, out);  // CBC mode
-            AES128_ECB_encrypt(in, key, out);
+            else
+            {
+                // PKCS7 padding
+                if (n_read < offset + BLOCKSIZE)
+                {
+                    memset(i_block + (n_read % BLOCKSIZE), BLOCKSIZE - (n_read % BLOCKSIZE), BLOCKSIZE - (n_read % BLOCKSIZE));
+                }
+                else
+                {
+                }
+                /*
+                xor(block, out);  // CBC mode
+                AES128_ECB_encrypt(in, key, out);
+                */
+            }
+
+            memcpy(o_block, i_block, BLOCKSIZE);  // TODO(olanmatt): Remove.
+            memcpy(out + offset, o_block, BLOCKSIZE);
         }
 
         lseek(fd, n_read * -1, SEEK_CUR);
-        if (write(fd, out, BUFSIZE) == -1)
+        if (write(fd, out, offset) == -1)
         {
             perror("Could not write to output file");
             return 4;
@@ -93,12 +121,26 @@ int incrypt(char* file, uint8_t *key, int decrypt)
         memset(in, 0, BUFSIZE);
     }
 
+    // TODO(olanmatt): Check if padding, otherwise pad 16.
+
     // Remove padding
     if (decrypt)
     {
         // TODO(olanmatt): Use padding for decryption validation.
-        off_t size = lseek(fd, 0, SEEK_END);  // Get size of file
         uint8_t padding_length = out[BUFSIZE - 1];  // Get padding length
+        for (int i = BUFSIZE - 1; i >= BUFSIZE - padding_length; --i)
+        {
+            if (out[i] != padding_length)
+            {
+                perror("Decryption failed");
+                //fprintf(stderr, "I am in stderr");
+                // TODO(olanmatt): Reverse decryption of file.
+                close(fd);
+                // TODO(olanmatt): Prompt user for reverse decryption.
+                incrypt(file, key, 0);
+                return 1;
+            }
+        }
         ftruncate(fd, size - padding_length);  // Trunkate the file
     }
 
