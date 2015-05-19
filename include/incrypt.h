@@ -27,7 +27,7 @@
 
 #include <stdint.h>
 
-#define BUFSIZE 1024
+#define BUFSIZE 1048576  // 1MB
 #define BLOCKSIZE 16
 
 int incrypt(char *file, uint8_t *key, int decrypt);

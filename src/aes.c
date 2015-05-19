@@ -194,7 +194,7 @@ static void KeyExpansion()
     {
         for (j = 0; j < 4; ++j)
         {
-            tempa[j]=RoundKey[(i-1) * 4 + j];
+            tempa[j] = RoundKey[(i - 1) * 4 + j];
         }
         if (i % Nk == 0)
         {
@@ -301,7 +301,7 @@ static void ShiftRows()
 
 static uint8_t xtime(uint8_t x)
 {
-    return ((x<<1) ^ (((x>>7) & 1) * 0x1b));
+    return ((x << 1) ^ (((x >> 7) & 1) * 0x1b));
 }
 
 // MixColumns function mixes the columns of the state matrix
@@ -483,7 +483,7 @@ static void InvCipher()
     {
         for (j = 0; j < 4; j++)
         {
-            out[i*4+j]=state[j][i];
+            out[i * 4 + j] = state[j][i];
         }
     }
 }

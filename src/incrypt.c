@@ -32,8 +32,6 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <sys/types.h>
-#include <openssl/evp.h>
-#include <openssl/sha.h>
 
 void xor(uint8_t* a, uint8_t* b)
 {
@@ -47,14 +45,14 @@ void xor(uint8_t* a, uint8_t* b)
 int incrypt(char* file, uint8_t *key, int decrypt)
 {
     int fd;
-    uint8_t in[BUFSIZE];
-    uint8_t out[BUFSIZE];
-    uint8_t i_block[BLOCKSIZE];
-    uint8_t o_block[BLOCKSIZE];
-    uint8_t last[BLOCKSIZE];
+    uint8_t in[BUFSIZE];  // Input buffer
+    uint8_t out[BUFSIZE];  // Output buffer
+    uint8_t i_block[BLOCKSIZE];  // Input block
+    uint8_t o_block[BLOCKSIZE];  // Output block
+    uint8_t last[BLOCKSIZE];  // Previous block
     int n_read;
     int offset;
-    off_t size = lseek(fd, 0, SEEK_END);  // Get size of file
+    off_t size;
 
     // TODO(olanmatt): Better IVs.
     memset(out, 0, BUFSIZE);
@@ -77,19 +75,20 @@ int incrypt(char* file, uint8_t *key, int decrypt)
         return 3;
     }
 
+    size = lseek(fd, 0, SEEK_END);  // Get size of file
+    lseek(fd, 0, SEEK_SET);
+
     while ((n_read = read(fd, in, BUFSIZE)) > 0)
     {
         for (offset = 0; offset < n_read; offset += BLOCKSIZE)
         {
             memcpy(i_block, in + offset, BLOCKSIZE);
-
             if (decrypt)
             {
-                /*
-                AES128_ECB_decrypt(block, key, out);
-                xor(out, last);  // CBC mode
-                memcpy(last, block, BUFSIZE);
-                */
+                // TODO(olanmatt): Break if initial block isn't nulled.
+                AES128_ECB_decrypt(i_block, key, o_block);
+                xor(o_block, last);  // CBC mode
+                memcpy(last, i_block, BLOCKSIZE);
             }
             else
             {
@@ -98,16 +97,11 @@ int incrypt(char* file, uint8_t *key, int decrypt)
                 {
                     memset(i_block + (n_read % BLOCKSIZE), BLOCKSIZE - (n_read % BLOCKSIZE), BLOCKSIZE - (n_read % BLOCKSIZE));
                 }
-                else
-                {
-                }
-                /*
-                xor(block, out);  // CBC mode
-                AES128_ECB_encrypt(in, key, out);
-                */
+                xor(i_block, last);  // CBC mode
+                AES128_ECB_encrypt(i_block, key, o_block);
+                memcpy(last, o_block, BLOCKSIZE);
             }
 
-            memcpy(o_block, i_block, BLOCKSIZE);  // TODO(olanmatt): Remove.
             memcpy(out + offset, o_block, BLOCKSIZE);
         }
 
@@ -126,21 +120,7 @@ int incrypt(char* file, uint8_t *key, int decrypt)
     // Remove padding
     if (decrypt)
     {
-        // TODO(olanmatt): Use padding for decryption validation.
-        uint8_t padding_length = out[BUFSIZE - 1];  // Get padding length
-        for (int i = BUFSIZE - 1; i >= BUFSIZE - padding_length; --i)
-        {
-            if (out[i] != padding_length)
-            {
-                perror("Decryption failed");
-                //fprintf(stderr, "I am in stderr");
-                // TODO(olanmatt): Reverse decryption of file.
-                close(fd);
-                // TODO(olanmatt): Prompt user for reverse decryption.
-                incrypt(file, key, 0);
-                return 1;
-            }
-        }
+        off_t padding_length = o_block[BLOCKSIZE - 1];  // Get padding length
         ftruncate(fd, size - padding_length);  // Trunkate the file
     }
 

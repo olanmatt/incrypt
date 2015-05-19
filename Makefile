@@ -26,7 +26,12 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 .PHONY: clean style astyle cpplint
 
 test: $(TARGET)
-	./bin/incrypt -k 0123456789012345 -f ./test/text.txt
+	mkdir -p ./test
+	curl -o ./test/image.tiff http://sipi.usc.edu/database/download.php?vol=misc&img=4.1.07
+	md5sum ./test/* > ./md5sum.txt
+	./bin/incrypt -k 0123456789012345 -f ./test/image.tiff
+	./bin/incrypt -k 0123456789012345 -f ./test/image.tiff -d
+	md5sum -c md5sum.txt
 
 style: astyle cpplint
 
@@ -35,7 +40,7 @@ astyle:
 
 cpplint:
 	@cpplint  $(CPPLINT_EXTRA) \
-		--filter=-whitespace/line_length,-whitespace/braces,-whitespace/newline\
+		--filter=-whitespace/line_length,-whitespace/braces,-readability/alt_tokens,-whitespace/newline\
 		$(SOURCES) $(HEADERS) $(TESTSOURCES)
 
 clean:

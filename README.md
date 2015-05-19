@@ -1,4 +1,4 @@
-incrypt
+incrypt [![Build Status](https://travis-ci.org/olanmatt/incrypt.svg?branch=master)](https://travis-ci.org/olanmatt/incrypt)
 =======
 
 An in-place file cryptography tool. Useful for simple file encryption with minimal memory and space requirements.
