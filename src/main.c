@@ -27,11 +27,13 @@
 #include <getopt.h>
 #include <string.h>
 #include <incrypt.h>
+#include <stdint.h>
+#include <fcntl.h>
 
 void usage()
 {
     printf("Usage: incrypt [-d] [-k key] [file]\n");
-    printf("Generate string permutations of charset to standard output.\n\n");
+    printf("Perform file encryption operations in place.\n\n");
     printf("  -d, --decrypt\t\tdecrypt file with key\n");
     printf("  -k, --key\t\tkey for encrpytion and decryption\n");
     printf("      --help\t\tdisplay this help and exit\n");
@@ -41,7 +43,7 @@ void usage()
 void version()
 {
     printf("incrypt 0.1\n");
-    printf("Copyright (C) 2014 Matt Olan.\n");
+    printf("Copyright (C) 2015 Matt Olan.\n");
     printf("License: The MIT License (MIT).\n\n");
     printf("This is free software: you are free to change and redistribute it.\n");
     printf("There is NO WARRANTY, to the extent permitted by law.\n\n");
@@ -50,9 +52,12 @@ void version()
 
 int main(int argc, char **argv)
 {
-    int c;
+    int cur;  // current flag
+    int fi;  // input file
+    int fo;  // output file
+    int ret;  // return value
     char *file;
-    int decrypt = 0;
+    int dec = 0;  // decrypt flag
     uint8_t key[16];
 
     // TODO(olanmatt): Add flag for safe decrypt to temp file before overwrite.
@@ -65,9 +70,9 @@ int main(int argc, char **argv)
         {"version",     no_argument,        0,      'V'}
     };
 
-    while ((c = getopt_long(argc, argv, "dk:f:", long_opts, NULL)) != -1)
+    while ((cur = getopt_long(argc, argv, "dk:f:", long_opts, NULL)) != -1)
     {
-        switch (c)
+        switch (cur)
         {
         case 'h':
             usage();
@@ -82,7 +87,7 @@ int main(int argc, char **argv)
             break;
 
         case 'd':
-            decrypt = 1;
+            dec = 1;
             break;
 
         case 'k':
@@ -95,11 +100,28 @@ int main(int argc, char **argv)
         }
     }
 
-    if (!file || !key)
+    // TODO(olanmatt): Validate file and key values.
+
+    if (BUFSIZE % BLOCKSIZE != 0)
     {
-        return 1;
+        perror("Buffer size must be a multiple of block size");
+        return 2;
     }
 
-    int ret = incrypt(file, key, decrypt);
+    // TODO(olanmatt): Support for different output files.
+    if ((fi = open(file, O_RDWR)) == -1)
+    {
+        perror("Could not open file for read or write");
+        return 3;
+    }
+    fo = fi;
+
+    // TODO(olanmatt): Implement PBKDF2 key derivation
+
+    if (dec)
+        ret = decrypt(fi, fo, key);
+    else
+        ret = incrypt(fi, fo, key);
+
     return ret;
 }

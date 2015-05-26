@@ -25,13 +25,9 @@
 #include <incrypt.h>
 #include <aes.h>
 #include <unistd.h>
-#include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
 #include <stdint.h>
-#include <sys/types.h>
 
 void xor(uint8_t* a, uint8_t* b)
 {
@@ -42,9 +38,66 @@ void xor(uint8_t* a, uint8_t* b)
     }
 }
 
-int incrypt(char* file, uint8_t *key, int decrypt)
+int incrypt(int fi, int fo, uint8_t *key)
 {
-    int fd;
+    uint8_t in[BUFSIZE];  // Input buffer
+    uint8_t out[BUFSIZE];  // Output buffer
+    uint8_t i_block[BLOCKSIZE];  // Input block
+    uint8_t o_block[BLOCKSIZE];  // Output block
+    uint8_t last[BLOCKSIZE];  // Previous block
+    int n_read;
+    int offset;
+    // off_t size;
+
+    memset(out, 0, BUFSIZE);
+    memset(in, 0, BUFSIZE);
+    memset(i_block, 0, BLOCKSIZE);
+    memset(o_block, 0, BLOCKSIZE);
+    memset(last, 0, BLOCKSIZE);
+
+    // size = lseek(fi, 0, SEEK_END);  // Get size of file
+    // lseek(fi, 0, SEEK_SET);
+
+    // TODO(olanmatt): Insert validation block.
+
+    // TODO(olanmatt): Pad first.
+
+    while ((n_read = read(fi, in, BUFSIZE)) > 0)
+    {
+        for (offset = 0; offset < n_read; offset += BLOCKSIZE)
+        {
+            memcpy(i_block, in + offset, BLOCKSIZE);
+
+            // PKCS7 padding
+            // TODO(olanmatt): Enable mod 16 padding.
+            if (n_read < offset + BLOCKSIZE)
+            {
+                memset(i_block + (n_read % BLOCKSIZE), BLOCKSIZE - (n_read % BLOCKSIZE), BLOCKSIZE - (n_read % BLOCKSIZE));
+            }
+            xor(i_block, last);  // CBC mode
+            AES128_ECB_encrypt(i_block, key, o_block);
+            memcpy(last, o_block, BLOCKSIZE);
+
+            memcpy(out + offset, o_block, BLOCKSIZE);
+        }
+
+        lseek(fi, n_read * -1, SEEK_CUR);
+        if (write(fi, out, offset) == -1)
+        {
+            perror("Could not write to output file");
+            return 4;
+        }
+
+        memset(in, 0, BUFSIZE);
+    }
+
+    close(fi);
+    // close(fo);
+    return 0;
+}
+
+int decrypt(int fi, int fo, uint8_t *key)
+{
     uint8_t in[BUFSIZE];  // Input buffer
     uint8_t out[BUFSIZE];  // Output buffer
     uint8_t i_block[BLOCKSIZE];  // Input block
@@ -54,59 +107,29 @@ int incrypt(char* file, uint8_t *key, int decrypt)
     int offset;
     off_t size;
 
-    // TODO(olanmatt): Better IVs.
     memset(out, 0, BUFSIZE);
     memset(in, 0, BUFSIZE);
     memset(i_block, 0, BLOCKSIZE);
     memset(o_block, 0, BLOCKSIZE);
     memset(last, 0, BLOCKSIZE);
 
-    // TODO(olanmatt): Implement PBKDF2 key derivation
+    size = lseek(fi, 0, SEEK_END);  // Get size of file
+    lseek(fi, 0, SEEK_SET);
 
-    if (BUFSIZE % BLOCKSIZE != 0)
+    while ((n_read = read(fi, in, BUFSIZE)) > 0)
     {
-        perror("Buffer size must be a multiple of block size");
-        return 2;
-    }
-
-    if ((fd = open(file, O_RDWR)) == -1)
-    {
-        perror("Could not open file for read or write");
-        return 3;
-    }
-
-    size = lseek(fd, 0, SEEK_END);  // Get size of file
-    lseek(fd, 0, SEEK_SET);
-
-    while ((n_read = read(fd, in, BUFSIZE)) > 0)
-    {
+        // TODO(olanmatt): Break if invalid validation block.
         for (offset = 0; offset < n_read; offset += BLOCKSIZE)
         {
             memcpy(i_block, in + offset, BLOCKSIZE);
-            if (decrypt)
-            {
-                // TODO(olanmatt): Break if initial block isn't nulled.
-                AES128_ECB_decrypt(i_block, key, o_block);
-                xor(o_block, last);  // CBC mode
-                memcpy(last, i_block, BLOCKSIZE);
-            }
-            else
-            {
-                // PKCS7 padding
-                if (n_read < offset + BLOCKSIZE)
-                {
-                    memset(i_block + (n_read % BLOCKSIZE), BLOCKSIZE - (n_read % BLOCKSIZE), BLOCKSIZE - (n_read % BLOCKSIZE));
-                }
-                xor(i_block, last);  // CBC mode
-                AES128_ECB_encrypt(i_block, key, o_block);
-                memcpy(last, o_block, BLOCKSIZE);
-            }
-
+            AES128_ECB_decrypt(i_block, key, o_block);
+            xor(o_block, last);  // CBC mode
+            memcpy(last, i_block, BLOCKSIZE);
             memcpy(out + offset, o_block, BLOCKSIZE);
         }
 
-        lseek(fd, n_read * -1, SEEK_CUR);
-        if (write(fd, out, offset) == -1)
+        lseek(fi, n_read * -1, SEEK_CUR);
+        if (write(fi, out, offset) == -1)
         {
             perror("Could not write to output file");
             return 4;
@@ -115,15 +138,11 @@ int incrypt(char* file, uint8_t *key, int decrypt)
         memset(in, 0, BUFSIZE);
     }
 
-    // TODO(olanmatt): Check if padding, otherwise pad 16.
-
     // Remove padding
-    if (decrypt)
-    {
-        off_t padding_length = o_block[BLOCKSIZE - 1];  // Get padding length
-        ftruncate(fd, size - padding_length);  // Trunkate the file
-    }
+    off_t padding_length = o_block[BLOCKSIZE - 1];  // Get padding length
+    ftruncate(fi, size - padding_length);  // Trunkate the file
 
-    close(fd);
+    close(fi);
+    // close(fo);
     return 0;
 }

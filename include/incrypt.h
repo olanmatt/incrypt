@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2014 Matt Olan, Prajjwal Bhandari.
+ * Copyright (c) 2015 Matt Olan
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,7 @@
 #define BUFSIZE 1048576  // 1MB
 #define BLOCKSIZE 16
 
-int incrypt(char *file, uint8_t *key, int decrypt);
+int incrypt(int fi, int fo, uint8_t *key);
+int decrypt(int fi, int fo, uint8_t *key);
 
 #endif  // INCLUDE_INCRYPT_H_
