@@ -47,7 +47,6 @@ int incrypt(int fi, int fo, uint8_t *key)
     uint8_t last[BLOCKSIZE];  // Previous block
     int n_read;
     int offset;
-    // off_t size;
 
     memset(out, 0, BUFSIZE);
     memset(in, 0, BUFSIZE);
@@ -55,29 +54,28 @@ int incrypt(int fi, int fo, uint8_t *key)
     memset(o_block, 0, BLOCKSIZE);
     memset(last, 0, BLOCKSIZE);
 
-    // size = lseek(fi, 0, SEEK_END);  // Get size of file
-    // lseek(fi, 0, SEEK_SET);
-
     // TODO(olanmatt): Insert validation block.
 
-    // TODO(olanmatt): Pad first.
+    // Add PKCS7 padding
+    lseek(fi, (lseek(fi, 0, SEEK_END) % BLOCKSIZE) * -1, SEEK_CUR);
+    n_read = read(fi, i_block, BLOCKSIZE);
+    memset(i_block + n_read, BLOCKSIZE - n_read, BLOCKSIZE - n_read);
+    lseek(fi, n_read * -1, SEEK_CUR);
+    if (write(fi, i_block, BLOCKSIZE) == -1)
+    {
+        perror("Could not write to output file");
+        return 4;
+    }
+    lseek(fi, 0, SEEK_SET);
 
     while ((n_read = read(fi, in, BUFSIZE)) > 0)
     {
         for (offset = 0; offset < n_read; offset += BLOCKSIZE)
         {
             memcpy(i_block, in + offset, BLOCKSIZE);
-
-            // PKCS7 padding
-            // TODO(olanmatt): Enable mod 16 padding.
-            if (n_read < offset + BLOCKSIZE)
-            {
-                memset(i_block + (n_read % BLOCKSIZE), BLOCKSIZE - (n_read % BLOCKSIZE), BLOCKSIZE - (n_read % BLOCKSIZE));
-            }
             xor(i_block, last);  // CBC mode
             AES128_ECB_encrypt(i_block, key, o_block);
             memcpy(last, o_block, BLOCKSIZE);
-
             memcpy(out + offset, o_block, BLOCKSIZE);
         }
 
@@ -92,7 +90,8 @@ int incrypt(int fi, int fo, uint8_t *key)
     }
 
     close(fi);
-    // close(fo);
+    if (fi != fo)
+        close(fo);
     return 0;
 }
 
@@ -138,11 +137,12 @@ int decrypt(int fi, int fo, uint8_t *key)
         memset(in, 0, BUFSIZE);
     }
 
-    // Remove padding
+    // Remove PKCS7 padding
     off_t padding_length = o_block[BLOCKSIZE - 1];  // Get padding length
     ftruncate(fi, size - padding_length);  // Trunkate the file
 
     close(fi);
-    // close(fo);
+    if (fi != fo)
+        close(fo);
     return 0;
 }

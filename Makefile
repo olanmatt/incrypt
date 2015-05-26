@@ -26,12 +26,15 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 .PHONY: clean style astyle cpplint
 
 test: $(TARGET)
-	head -c 1048575 < /dev/urandom > ./testfile
-	md5sum ./testfile > ./md5sum.txt
-	./bin/incrypt -k 0123456789012345 -f ./testfile
-	./bin/incrypt -k 0123456789012345 -f ./testfile -d
+	head -c 1048576 < /dev/urandom > ./testfile1
+	head -c 1       < /dev/urandom > ./testfile2
+	md5sum ./testfile* > ./md5sum.txt
+	./bin/incrypt -k 0123456789012345 -f ./testfile1
+	./bin/incrypt -k 0123456789012345 -f ./testfile1 -d
+	./bin/incrypt -k 0123456789012345 -f ./testfile2
+	./bin/incrypt -k 0123456789012345 -f ./testfile2 -d
 	md5sum -c md5sum.txt
-	rm testfile md5sum.txt
+	rm testfile* md5sum.txt
 
 style: astyle cpplint
 
