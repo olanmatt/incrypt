@@ -26,12 +26,12 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 .PHONY: clean style astyle cpplint
 
 test: $(TARGET)
-	mkdir -p ./test
-	curl -o ./test/image.tiff http://sipi.usc.edu/database/download.php?vol=misc&img=4.1.07
-	md5sum ./test/* > ./md5sum.txt
-	./bin/incrypt -k 0123456789012345 -f ./test/image.tiff
-	./bin/incrypt -k 0123456789012345 -f ./test/image.tiff -d
+	head -c 1048575 < /dev/urandom > ./testfile
+	md5sum ./testfile > ./md5sum.txt
+	./bin/incrypt -k 0123456789012345 -f ./testfile
+	./bin/incrypt -k 0123456789012345 -f ./testfile -d
 	md5sum -c md5sum.txt
+	rm testfile md5sum.txt
 
 style: astyle cpplint
 
