@@ -68,13 +68,16 @@ int incrypt(int fi, int fo, uint8_t *key)
     }
     lseek(fi, 0, SEEK_SET);
 
+    uint32_t cipherkey[44];
+    aes128_expand_key(key, cipherkey);
+
     while ((n_read = read(fi, in, BUFSIZE)) > 0)
     {
         for (offset = 0; offset < n_read; offset += BLOCKSIZE)
         {
             memcpy(i_block, in + offset, BLOCKSIZE);
             xor(i_block, last);  // CBC mode
-            AES128_ECB_encrypt(i_block, key, o_block);
+            aes128_encrypt_block(i_block, cipherkey, o_block);
             memcpy(last, o_block, BLOCKSIZE);
             memcpy(out + offset, o_block, BLOCKSIZE);
         }
@@ -115,13 +118,16 @@ int decrypt(int fi, int fo, uint8_t *key)
     size = lseek(fi, 0, SEEK_END);  // Get size of file
     lseek(fi, 0, SEEK_SET);
 
+    uint32_t cipherkey[44];
+    aes128_expand_key(key, cipherkey);
+
     while ((n_read = read(fi, in, BUFSIZE)) > 0)
     {
         // TODO(olanmatt): Break if invalid validation block.
         for (offset = 0; offset < n_read; offset += BLOCKSIZE)
         {
             memcpy(i_block, in + offset, BLOCKSIZE);
-            AES128_ECB_decrypt(i_block, key, o_block);
+            aes128_decrypt_block(i_block, cipherkey, o_block);
             xor(o_block, last);  // CBC mode
             memcpy(last, i_block, BLOCKSIZE);
             memcpy(out + offset, o_block, BLOCKSIZE);
