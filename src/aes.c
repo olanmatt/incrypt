@@ -39,7 +39,7 @@ sub_bytes(uint32_t *state, const sbox_t sb)
 static uint8_t
 mult(uint8_t a, uint8_t b)
 {
-    uint8_t m[3] = {mult2[a], mult2[m[0]], mult2[m[1]]};
+    uint8_t m[3] = {mult2[a], mult2[mult2[a]], mult2[mult2[mult2[a]]]};
     return (a * !!(b & 1)) ^ (m[0] * !!(b & 2)) ^ (m[1] * !!(b & 4)) ^
            (m[2] * !!(b & 8));
 }
