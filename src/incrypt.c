@@ -57,6 +57,7 @@ int incrypt(int fi, int fo, uint8_t *key)
     // TODO(olanmatt): Insert validation block.
 
     // Add PKCS7 padding
+    // TODO(olanmatt): Add padding in encrpytion loop.
     lseek(fi, (lseek(fi, 0, SEEK_END) % BLOCKSIZE) * -1, SEEK_CUR);
     n_read = read(fi, i_block, BLOCKSIZE);
     memset(i_block + n_read, BLOCKSIZE - n_read, BLOCKSIZE - n_read);
@@ -68,6 +69,7 @@ int incrypt(int fi, int fo, uint8_t *key)
     }
     lseek(fi, 0, SEEK_SET);
 
+    // Encryption loop
     while ((n_read = read(fi, in, BUFSIZE)) > 0)
     {
         for (offset = 0; offset < n_read; offset += BLOCKSIZE)
@@ -79,8 +81,9 @@ int incrypt(int fi, int fo, uint8_t *key)
             memcpy(out + offset, o_block, BLOCKSIZE);
         }
 
-        lseek(fi, n_read * -1, SEEK_CUR);
-        if (write(fi, out, offset) == -1)
+        if (fi == fo)
+            lseek(fo, n_read * -1, SEEK_CUR);
+        if (write(fo, out, offset) == -1)
         {
             perror("Could not write to output file");
             return 4;
@@ -104,7 +107,6 @@ int decrypt(int fi, int fo, uint8_t *key)
     uint8_t last[BLOCKSIZE];  // Previous block
     int n_read;
     int offset;
-    off_t size;
 
     memset(out, 0, BUFSIZE);
     memset(in, 0, BUFSIZE);
@@ -112,9 +114,7 @@ int decrypt(int fi, int fo, uint8_t *key)
     memset(o_block, 0, BLOCKSIZE);
     memset(last, 0, BLOCKSIZE);
 
-    size = lseek(fi, 0, SEEK_END);  // Get size of file
-    lseek(fi, 0, SEEK_SET);
-
+    // Decrpytion loop
     while ((n_read = read(fi, in, BUFSIZE)) > 0)
     {
         // TODO(olanmatt): Break if invalid validation block.
@@ -127,8 +127,9 @@ int decrypt(int fi, int fo, uint8_t *key)
             memcpy(out + offset, o_block, BLOCKSIZE);
         }
 
-        lseek(fi, n_read * -1, SEEK_CUR);
-        if (write(fi, out, offset) == -1)
+        if (fi == fo)
+            lseek(fo, n_read * -1, SEEK_CUR);
+        if (write(fo, out, offset) == -1)
         {
             perror("Could not write to output file");
             return 4;
@@ -138,8 +139,9 @@ int decrypt(int fi, int fo, uint8_t *key)
     }
 
     // Remove PKCS7 padding
+    lseek(fo, 0, SEEK_SET);
     off_t padding_length = o_block[BLOCKSIZE - 1];  // Get padding length
-    ftruncate(fi, size - padding_length);  // Trunkate the file
+    ftruncate(fo, lseek(fo, 0, SEEK_END) - padding_length);  // Trunkate the file
 
     close(fi);
     if (fi != fo)

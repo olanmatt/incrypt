@@ -32,10 +32,11 @@
 
 void usage()
 {
-    printf("Usage: incrypt [-d] [-k key] [file]\n");
+    printf("Usage: incrypt [-d] [-k key] [-o file] [file]\n");
     printf("Perform file encryption operations in place.\n\n");
     printf("  -d, --decrypt\t\tdecrypt file with key\n");
     printf("  -k, --key\t\tkey for encrpytion and decryption\n");
+    printf("  -o, --out\t\toptional output file\n");
     printf("      --help\t\tdisplay this help and exit\n");
     printf("      --version\t\toutput version infomation and exit\n");
 }
@@ -56,21 +57,22 @@ int main(int argc, char **argv)
     int fi;  // input file
     int fo;  // output file
     int ret;  // return value
-    char *file;
+    char *file_in;
+    char *file_out;
     int dec = 0;  // decrypt flag
     uint8_t key[16];
 
-    // TODO(olanmatt): Add flag for safe decrypt to temp file before overwrite.
     static struct option long_opts[] =
     {
         {"file",        required_argument,  NULL,   'f'},
         {"decrypt",     no_argument,        0,      'd'},
         {"key",         required_argument,  NULL,   'k'},
+        {"out",         optional_argument,  NULL,   'o'},
         {"help",        no_argument,        0,      'h'},
         {"version",     no_argument,        0,      'V'}
     };
 
-    while ((cur = getopt_long(argc, argv, "dk:f:", long_opts, NULL)) != -1)
+    while ((cur = getopt_long(argc, argv, "dk:o:f:", long_opts, NULL)) != -1)
     {
         switch (cur)
         {
@@ -83,7 +85,11 @@ int main(int argc, char **argv)
             exit(0);
 
         case 'f':
-            file = optarg;
+            file_in = optarg;
+            break;
+
+        case 'o':
+            file_out = optarg;
             break;
 
         case 'd':
@@ -102,14 +108,16 @@ int main(int argc, char **argv)
 
     // TODO(olanmatt): Validate file and key values.
 
+    printf("%s\n", file_out);
+
     if (BUFSIZE % BLOCKSIZE != 0)
     {
         perror("Buffer size must be a multiple of block size");
         return 2;
     }
 
-    // TODO(olanmatt): Support for different output files.
-    if ((fi = open(file, O_RDWR)) == -1)
+    // TODO(olanmatt): Support for different output file.
+    if ((fi = open(file_in, O_RDWR)) == -1)
     {
         perror("Could not open file for read or write");
         return 3;
