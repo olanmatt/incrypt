@@ -108,8 +108,6 @@ int main(int argc, char **argv)
 
     // TODO(olanmatt): Validate file and key values.
 
-    printf("%s\n", file_out);
-
     if (BUFSIZE % BLOCKSIZE != 0)
     {
         perror("Buffer size must be a multiple of block size");
